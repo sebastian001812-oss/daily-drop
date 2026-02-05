@@ -179,13 +179,16 @@
 <script>
 (function(){
   // DEV MODE (?dev=1)
-  const params = new URLSearchParams(window.location.search);
-  const isDev = params.get("dev") === "1";
+const params = new URLSearchParams(window.location.search);
+const isDev = params.get("dev") === "1";
 
-  if (isDev) {
-    const devBtn = document.getElementById("devImportBtn");
-    if (devBtn) devBtn.style.display = "inline-flex";
-  }
+if (isDev) {
+  const devBtn = document.getElementById("devImportBtn");
+  if (devBtn) devBtn.style.display = "inline-flex";
+
+  const sourceBtn = document.getElementById("sourceBtn");
+  if (sourceBtn) sourceBtn.style.display = "inline-flex";
+}
   // -----------------------------
   // Embedded dailies (fallback)
   // -----------------------------
