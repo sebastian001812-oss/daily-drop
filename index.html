@@ -161,6 +161,21 @@
   </div>
 </div>
 
+  <!-- Archive modal -->
+<div class="modal" id="archiveModal" role="dialog" aria-modal="true">
+  <div class="backdrop" id="archiveBackdrop"></div>
+  <div class="modal-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div style="font-weight:900">Archiwum (ostatnie 14 dni)</div>
+      <button class="btn" id="archiveCloseBtn" type="button">Zamknij</button>
+    </div>
+    <div class="small" style="margin:10px 0 8px">
+      Kliknij dzień, żeby wczytać krzyżówkę. Brak pliku = brak dnia.
+    </div>
+    <div id="archiveList" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+</div>
+
 <!-- Result modal -->
 <div class="modal" id="resultModal" role="dialog" aria-modal="true">
   <div class="backdrop" id="resultBackdrop"></div>
@@ -176,6 +191,7 @@
     </div>
   </div>
 </div>
+
 
 <script>
 (function(){
