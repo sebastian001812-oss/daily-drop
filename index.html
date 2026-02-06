@@ -255,6 +255,14 @@ if (isDev) {
 
   // Source
   const SOURCE_KEY = "daily_drop_source_baseurl";
+  function getDefaultBaseUrl(){
+  // automatycznie: ten sam hosting + folder crosswords
+  return `${window.location.origin}/daily-drop/crosswords`;
+}
+function getBaseUrl(){
+  const saved = (localStorage.getItem(SOURCE_KEY) || "").trim().replace(/\/+$/,"");
+  return saved || getDefaultBaseUrl();
+}
   function openSource(){ $("#sourceText").value = (localStorage.getItem(SOURCE_KEY) || "").trim(); $("#sourceModal").classList.add("active"); }
   function closeSource(){ $("#sourceModal").classList.remove("active"); }
   $("#sourceBtn").addEventListener("click", openSource);
