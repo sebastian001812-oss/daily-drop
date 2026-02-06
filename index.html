@@ -1,664 +1,148 @@
 <!doctype html>
 <html lang="pl" data-theme="light">
 <head>
-  <meta charset="utf-8"/>
-  <title>Daily Drop – daily (standalone)</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <style>
-    :root{
-      --bg:#f3f4f6;--card:#ffffff;--text:#0f172a;--muted:rgba(15,23,42,.7);
-      --border:rgba(148,163,184,.45);--accent:#2563eb;--accent2:#16a34a;--danger:#b91c1c;
-      --cell-fill:#ffffff;--cell-block:#111827;--shadow:0 16px 40px rgba(15,23,42,.10);
-    }
-    :root[data-theme="dark"]{
-      --bg:#0b1220;--card:#0f172a;--text:#e5e7eb;--muted:rgba(229,231,235,.75);
-      --border:rgba(148,163,184,.25);--accent:#3b82f6;--accent2:#22c55e;--danger:#ef4444;
-      --cell-fill:#ffffff;--cell-block:#111827;--shadow:0 18px 50px rgba(0,0,0,.45);
-    }
-    *{box-sizing:border-box}
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
-    .wrap{max-width:980px;margin:0 auto;padding:14px 14px 90px}
-    .topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);position:sticky;top:10px;z-index:10}
-    .brand{display:flex;flex-direction:column;gap:2px}
-    .brand .title{font-weight:800;letter-spacing:.04em;text-transform:uppercase;font-size:.85rem}
-    .brand .sub{font-size:.8rem;color:var(--muted)}
-    .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
-    .btn{border:none;cursor:pointer;border-radius:999px;padding:9px 12px;font-weight:800;font-size:.85rem;background:rgba(148,163,184,.18);color:var(--text);border:1px solid var(--border)}
-    .btn.primary{background:var(--accent);color:#fff;border-color:transparent}
-    .btn.danger{background:rgba(239,68,68,.12);color:var(--danger)}
-    .btn.ghost{background:transparent}
-    .btn:disabled{opacity:.5;cursor:not-allowed}
-    .pill{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;font-size:.78rem;font-weight:800;border:1px solid var(--border);color:var(--muted);background:rgba(148,163,184,.12);white-space:nowrap}
-    .grid-area{margin-top:12px;display:grid;gap:12px;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
-    @media(max-width:900px){.grid-area{grid-template-columns:1fr}}
-    .card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:14px;box-shadow:var(--shadow)}
-    .card h2{margin:0 0 10px;font-size:1rem}
-    .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
-    .board{width:100%;display:grid;gap:2px;padding:6px;background:rgba(148,163,184,.12);border:1px solid var(--border);border-radius:18px}
-    :root[data-theme="dark"] .board{background:rgba(255,255,255,.04)}
-    .cell{position:relative;aspect-ratio:1/1;border-radius:6px;border:1px solid rgba(15,23,42,.25);background:var(--cell-fill);overflow:hidden;user-select:none}
-    :root[data-theme="dark"] .cell{border-color:rgba(255,255,255,.12)}
-    .cell.block{background:var(--cell-block);border-color:transparent}
-    .cell.active{outline:3px solid rgba(59,130,246,.65);outline-offset:-2px}
-    .cell.in-word{box-shadow:inset 0 0 0 999px rgba(37,99,235,.10)}
-    .cell .num{position:absolute;top:2px;left:4px;font-size:10px;font-weight:900;color:rgba(15,23,42,.7)}
-    .cell input{width:100%;height:100%;border:none;outline:none;text-align:center;font-weight:900;font-size:18px;text-transform:uppercase;background:transparent;color:#0f172a;padding:0}
-    .cell.locked input{color:rgba(15,23,42,.55)}
-    .clues{display:flex;flex-direction:column;gap:10px}
-    .clue-group-title{font-weight:900;font-size:.9rem;margin:2px 0 6px}
-    .clue{padding:10px;border:1px solid var(--border);border-radius:14px;background:rgba(148,163,184,.10);cursor:pointer;line-height:1.25;font-size:.9rem}
-    .clue:hover{filter:brightness(.98)}
-    .clue.active{border-color:rgba(37,99,235,.7);box-shadow:0 10px 25px rgba(37,99,235,.18)}
-    .clue .row{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
-    .clue .num{font-weight:900}
-    .clue .len{color:var(--muted);font-size:.8rem;font-weight:800;white-space:nowrap}
-    .small{font-size:.78rem;color:var(--muted)}
-    .sticky{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:10px 12px;background:linear-gradient(to top, rgba(243,244,246,.98), rgba(243,244,246,.75));border-top:1px solid var(--border)}
-    :root[data-theme="dark"] .sticky{background:linear-gradient(to top, rgba(2,6,23,.92), rgba(2,6,23,.55));border-top:1px solid rgba(148,163,184,.18)}
-    .sticky-inner{max-width:980px;margin:0 auto;display:flex;gap:10px;align-items:center;justify-content:space-between}
-    .sticky-left{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:50}
-    .modal.active{display:flex}
-    .backdrop{position:absolute;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(2px)}
-    .modal-card{position:relative;z-index:1;width:min(860px,94vw);background:var(--card);border:1px solid var(--border);border-radius:18px;padding:14px;box-shadow:0 30px 80px rgba(0,0,0,.45)}
-    textarea{width:100%;min-height:220px;resize:vertical;border-radius:16px;border:1px solid var(--border);padding:12px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;font-size:.85rem;background:rgba(148,163,184,.08);color:var(--text);outline:none}
-    .sharebox{margin-top:10px;padding:10px;border-radius:14px;border:1px dashed var(--border);background:rgba(148,163,184,.08);white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;font-size:.86rem}
-    .archive-item{
-  display:flex; align-items:center; justify-content:space-between; gap:10px;
-  padding:10px; border:1px solid var(--border); border-radius:14px;
-  background:rgba(148,163,184,.10); cursor:pointer;
+<meta charset="utf-8"/>
+<title>Daily Drop</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+<style>
+:root{
+  --bg:#f3f4f6;--card:#ffffff;--text:#0f172a;--muted:#64748b;
+  --border:#e5e7eb;--accent:#2563eb;--danger:#ef4444;
 }
-.archive-item:hover{filter:brightness(.98)}
-.archive-left{display:flex; flex-direction:column; gap:2px}
-.badge{
-  font-size:.75rem; font-weight:900; padding:4px 8px; border-radius:999px;
-  border:1px solid var(--border); color:var(--muted); background:rgba(148,163,184,.12);
-  white-space:nowrap;
-}
-.badge.ok{color:var(--accent2); border-color:rgba(34,197,94,.35); background:rgba(34,197,94,.12)}
-.badge.no{color:var(--danger); border-color:rgba(239,68,68,.35); background:rgba(239,68,68,.10)}
-  </style>
+body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+.topbar{display:flex;justify-content:space-between;align-items:center;
+  background:var(--card);padding:12px;border-radius:16px;border:1px solid var(--border)}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{padding:8px 12px;border-radius:999px;border:1px solid var(--border);
+  background:#fff;font-weight:700;cursor:pointer}
+.btn.primary{background:var(--accent);color:#fff;border:none}
+.btn.danger{background:#fee2e2;color:#b91c1c;border:none}
+.card{margin-top:12px;background:#fff;padding:14px;border-radius:16px;border:1px solid var(--border)}
+.board{display:grid;gap:2px;margin-top:12px}
+.cell{aspect-ratio:1;border:1px solid #cbd5e1;display:flex;align-items:center;justify-content:center}
+.cell.block{background:#0f172a}
+.cell input{width:100%;height:100%;border:none;text-align:center;font-weight:800;font-size:18px}
+.modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6)}
+.modal.active{display:flex}
+.modal-card{background:#fff;padding:16px;border-radius:16px;width:90%;max-width:420px}
+.archive-item{display:flex;justify-content:space-between;padding:8px;border:1px solid #e5e7eb;
+  border-radius:12px;margin-bottom:6px;cursor:pointer}
+.badge.ok{color:#16a34a;font-weight:700}
+.badge.no{color:#dc2626;font-weight:700}
+</style>
 </head>
+
 <body>
 <div class="wrap">
-  <header class="topbar">
-    <div class="brand">
-      <div class="title">Daily Drop</div>
-      <div class="sub" id="subtitle">Daily • 2026-02-05</div>
-    </div>
-    <div class="actions">
-      <button class="btn" id="sourceBtn" type="button" style="display:none">
-  Ustaw źródło
-</button>
-      <button class="btn primary" id="reloadBtn" type="button">Odśwież dziś</button>
-      <button class="btn" id="archiveBtn" type="button">Archiwum</button>
-      <button class="btn ghost" id="themeBtn" type="button">Motyw</button>
-      <button class="btn danger" id="resetBtn" type="button" disabled>Reset</button>
-      <button class="btn" id="devImportBtn" type="button" style="display:none">
-  Import (dev)
-</button>
-    </div>
-  </header>
 
-  <div class="grid-area">
-    <section class="card">
-      <h2 id="titleH2">Temat: —</h2>
-      <div class="meta">
-        <span class="pill">⏱️ <span id="timer">00:00</span></span>
-        <span class="pill">💡 Podpowiedzi: <span id="hintsLeft">—</span></span>
-        <span class="pill">↔️ Kierunek: <span id="dirLabel">—</span></span>
-        <span class="pill" id="statusPill">Status: —</span>
-      </div>
-      <div style="margin-top:12px">
-        <div id="board" class="board" aria-label="Krzyżówka"></div>
-      </div>
-      <p class="small" style="margin:10px 0 0">
-        Reset o północy (lokalnie). Jeśli ustawisz źródło, aplikacja spróbuje pobrać JSON: <span class="small"><b>&lt;baseUrl&gt;/YYYY-MM-DD.json</b></span>
-      </p>
-    </section>
-
-    <aside class="card">
-      <h2>Definicje</h2>
-      <div class="clues" id="clues"></div>
-    </aside>
+<header class="topbar">
+  <div><strong>DAILY DROP</strong><br><small id="subtitle">Daily</small></div>
+  <div class="actions">
+    <button class="btn primary" id="reloadBtn">Odśwież dziś</button>
+    <button class="btn" id="archiveBtn">Archiwum</button>
+    <button class="btn danger" id="resetBtn" disabled>Reset</button>
+    <button class="btn" id="devImportBtn" style="display:none">Import (dev)</button>
   </div>
+</header>
+
+<section class="card">
+  <div id="status">Status: —</div>
+  <div id="board" class="board"></div>
+</section>
+
 </div>
 
-<div class="sticky">
-  <div class="sticky-inner">
-    <div class="sticky-left">
-      <button class="btn primary" id="hintBtn" type="button" disabled>💡 Podpowiedź</button>
-      <button class="btn" id="switchBtn" type="button" disabled>↔️ Zmień kierunek</button>
-    </div>
-    <div class="sticky-left">
-      <button class="btn" id="finishBtn" type="button" disabled>Zakończ</button>
-    </div>
-  </div>
-</div>
-
-<!-- Source modal -->
-<div class="modal" id="sourceModal" role="dialog" aria-modal="true">
-  <div class="backdrop" id="sourceBackdrop"></div>
+<!-- ARCHIWUM -->
+<div class="modal" id="archiveModal">
   <div class="modal-card">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-      <div style="font-weight:900">Źródło JSON (opcjonalne)</div>
-      <button class="btn" id="sourceCloseBtn" type="button">Zamknij</button>
-    </div>
-    <div class="small" style="margin:10px 0 8px">
-      Wpisz bazowy URL, pod którym trzymasz krzyżówki jako pliki <b>YYYY-MM-DD.json</b>.
-      Przykład: jeśli wpiszesz <b>https://twoj-domenowy-folder</b>, aplikacja pobierze dziś: <b>.../2026-02-05.json</b>.
-    </div>
-    <textarea id="sourceText" spellcheck="false" style="min-height:110px"></textarea>
-    <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
-      <button class="btn primary" id="saveSourceBtn" type="button">Zapisz</button>
-      <button class="btn" id="clearSourceBtn" type="button">Wyczyść</button>
-    </div>
+    <h3>Archiwum (14 dni)</h3>
+    <div id="archiveList"></div>
+    <button class="btn" onclick="closeArchive()">Zamknij</button>
   </div>
 </div>
-
-<!-- Import modal (dev) -->
-<div class="modal" id="importModal" role="dialog" aria-modal="true">
-  <div class="backdrop" id="importBackdrop"></div>
-  <div class="modal-card">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-      <div style="font-weight:900">Import (dev)</div>
-      <button class="btn" id="importCloseBtn" type="button">Zamknij</button>
-    </div>
-    <div class="small" style="margin:10px 0 8px">
-      Wklej JSON (z generatora). To jest tryb awaryjny/testowy.
-    </div>
-    <textarea id="importText" spellcheck="false"></textarea>
-    <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
-      <button class="btn primary" id="loadBtn" type="button">Wczytaj</button>
-      <button class="btn" id="exampleBtn" type="button">Wklej przykład</button>
-    </div>
-  </div>
-</div>
-
-  <!-- Archive modal -->
-<div class="modal" id="archiveModal" role="dialog" aria-modal="true">
-  <div class="backdrop" id="archiveBackdrop"></div>
-  <div class="modal-card">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-      <div style="font-weight:900">Archiwum (ostatnie 14 dni)</div>
-      <button class="btn" id="archiveCloseBtn" type="button">Zamknij</button>
-    </div>
-    <div class="small" style="margin:10px 0 8px">
-      Kliknij dzień, żeby wczytać krzyżówkę. Brak pliku = brak dnia.
-    </div>
-    <div id="archiveList" style="display:flex;flex-direction:column;gap:8px"></div>
-  </div>
-</div>
-
-<!-- Result modal -->
-<div class="modal" id="resultModal" role="dialog" aria-modal="true">
-  <div class="backdrop" id="resultBackdrop"></div>
-  <div class="modal-card">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-      <div style="font-weight:900">Wynik</div>
-      <button class="btn" id="resultCloseBtn" type="button">Zamknij</button>
-    </div>
-    <div id="resultBody" class="small" style="margin-top:10px"></div>
-    <div class="sharebox" id="shareText"></div>
-    <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
-      <button class="btn primary" id="copyBtn" type="button">Skopiuj wynik</button>
-    </div>
-  </div>
-</div>
-
 
 <script>
-(function(){
-  // DEV MODE (?dev=1)
-const params = new URLSearchParams(window.location.search);
-const isDev = params.get("dev") === "1";
+(() => {
+const board = document.getElementById("board");
+const status = document.getElementById("status");
+const archiveModal = document.getElementById("archiveModal");
+const archiveList = document.getElementById("archiveList");
+const params = new URLSearchParams(location.search);
+const isDev = params.get("dev")==="1";
+if(isDev) document.getElementById("devImportBtn").style.display="inline-block";
 
-if (isDev) {
-  const devBtn = document.getElementById("devImportBtn");
-  if (devBtn) devBtn.style.display = "inline-flex";
+const baseUrl = location.origin + "/daily-drop/crosswords";
 
-  const sourceBtn = document.getElementById("sourceBtn");
-  if (sourceBtn) sourceBtn.style.display = "inline-flex";
-}
-  // -----------------------------
-  // Embedded dailies (fallback)
-  // -----------------------------
-  const EMBEDDED = {
-    "2026-02-05": {"meta": {"date": "2026-02-05", "theme": "Internet", "size": 13, "targetRuns": 10, "hintsPerDay": 2}, "grid": [["", "", "H", "A", "S", "H", "T", "A", "G", "", "", "", ""], ["", "", "", "P", "R", "O", "F", "I", "L", "", "", "", ""], ["", "", "", "", "", "", "O", "", "", "", "", "", ""], ["", "", "", "", "", "", "M", "", "", "", "", "", ""], ["", "", "", "", "", "", "E", "", "", "", "", "", ""], ["", "A", "L", "G", "O", "R", "Y", "T", "M", "", "", "", ""], ["", "", "", "", "", "", "N", "", "", "", "", "", ""], ["", "", "", "", "", "", "T", "", "", "", "", "", ""], ["", "", "", "", "", "", "A", "", "", "", "", "", ""], ["", "", "", "", "", "", "R", "", "", "", "", "", ""], ["", "", "", "", "", "", "Z", "", "", "", "", "", ""], ["", "", "", "", "", "", "", "", "", "", "", "", ""], ["", "", "", "", "", "", "", "", "", "", "", "", ""]], "runs": [{"word": "HASHTAG", "direction": "across", "start_row": 0, "start_col": 2, "length": 7}, {"word": "PROFIL", "direction": "across", "start_row": 1, "start_col": 3, "length": 6}, {"word": "KOMENTARZ", "direction": "down", "start_row": 2, "start_col": 6, "length": 9}, {"word": "ALGORYTM", "direction": "across", "start_row": 5, "start_col": 1, "length": 8}], "clues": {"HASHTAG": "Słowo poprzedzone znakiem #, ułatwiające wyszukiwanie treści", "PROFIL": "Miejsce w serwisie, gdzie są informacje o użytkowniku", "KOMENTARZ": "Forma reakcji pod postem lub artykułem", "ALGORYTM": "Zestaw reguł decydujących, co widzisz w mediach społecznościowych"}},
-    "2026-02-06": {"meta": {"date": "2026-02-06", "theme": "Muzyka", "size": 13, "targetRuns": 10, "hintsPerDay": 2}, "grid": [["", "", "H", "A", "S", "H", "T", "A", "G", "", "", "", ""], ["", "", "", "P", "R", "O", "F", "I", "L", "", "", "", ""], ["", "", "", "", "", "", "O", "", "", "", "", "", ""], ["", "", "", "", "", "", "M", "", "", "", "", "", ""], ["", "", "", "", "", "", "E", "", "", "", "", "", ""], ["", "A", "L", "G", "O", "R", "Y", "T", "M", "", "", "", ""], ["", "", "", "", "", "", "N", "", "", "", "", "", ""], ["", "", "", "", "", "", "T", "", "", "", "", "", ""], ["", "", "", "", "", "", "A", "", "", "", "", "", ""], ["", "", "", "", "", "", "R", "", "", "", "", "", ""], ["", "", "", "", "", "", "Z", "", "", "", "", "", ""], ["", "", "", "", "", "", "", "", "", "", "", "", ""], ["", "", "", "", "", "", "", "", "", "", "", "", ""]], "runs": [{"word": "HASHTAG", "direction": "across", "start_row": 0, "start_col": 2, "length": 7}, {"word": "PROFIL", "direction": "across", "start_row": 1, "start_col": 3, "length": 6}, {"word": "KOMENTARZ", "direction": "down", "start_row": 2, "start_col": 6, "length": 9}, {"word": "ALGORYTM", "direction": "across", "start_row": 5, "start_col": 1, "length": 8}], "clues": {"HASHTAG": "Słowo poprzedzone znakiem #, ułatwiające wyszukiwanie treści", "PROFIL": "Miejsce w serwisie, gdzie są informacje o użytkowniku", "KOMENTARZ": "Forma reakcji pod postem lub artykułem", "ALGORYTM": "Zestaw reguł decydujących, co widzisz w mediach społecznościowych"}}
-  };
-
-  function openArchive(){ 
-  $("#archiveModal").classList.add("active");
-  buildArchiveList();
-}
-function closeArchive(){ $("#archiveModal").classList.remove("active"); }
-
-$("#archiveBtn").addEventListener("click", openArchive);
-$("#archiveBackdrop").addEventListener("click", closeArchive);
-$("#archiveCloseBtn").addEventListener("click", closeArchive);
-
-function dateMinusDays(n){
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+function today(){
+  const d=new Date();
+  return d.toISOString().slice(0,10);
 }
 
-async function fetchDay(date){
-  const base = getBaseUrl();
-  const url = `${base}/${date}.json`;
-  const res = await fetch(url, { cache:"no-store" });
-  if(!res.ok) throw new Error("HTTP " + res.status);
-  const obj = await res.json();
-  obj.meta = obj.meta || {};
-  if(!obj.meta.date) obj.meta.date = date;
-  return obj;
+async function loadDay(date){
+  status.textContent="Status: ładowanie…";
+  try{
+    const res = await fetch(`${baseUrl}/${date}.json`);
+    if(!res.ok) throw 1;
+    const json = await res.json();
+    render(json.grid);
+    status.textContent="Status: OK";
+  }catch{
+    board.innerHTML="";
+    status.textContent="Status: brak krzyżówki";
+  }
 }
 
-async function buildArchiveList(){
-  const list = $("#archiveList");
-  list.innerHTML = "";
+function render(grid){
+  board.style.gridTemplateColumns=`repeat(${grid.length},1fr)`;
+  board.innerHTML="";
+  grid.forEach(row=>{
+    row.forEach(cell=>{
+      const d=document.createElement("div");
+      d.className="cell"+(cell===""?" block":"");
+      if(cell!==""){
+        const i=document.createElement("input");
+        i.maxLength=1;
+        d.appendChild(i);
+      }
+      board.appendChild(d);
+    });
+  });
+}
 
-  // 14 dni: dziś (0) do 13 dni wstecz
-  const days = Array.from({length:14}, (_,i)=>dateMinusDays(i));
-
-  for(const date of days){
-    const row = document.createElement("div");
-    row.className = "archive-item";
-    row.innerHTML = `
-      <div class="archive-left">
-        <div style="font-weight:900">${date}</div>
-        <div class="small">Kliknij, żeby wczytać</div>
-      </div>
-      <div class="badge">sprawdzam…</div>
-    `;
-    list.appendChild(row);
-
-    const badge = row.querySelector(".badge");
-
-    // lekki „HEAD check” nie zawsze działa na GH Pages w 100%, więc robimy szybki GET i od razu cache w pamięci przeglądarki
+async function buildArchive(){
+  archiveList.innerHTML="";
+  for(let i=0;i<14;i++){
+    const d=new Date(); d.setDate(d.getDate()-i);
+    const date=d.toISOString().slice(0,10);
+    const row=document.createElement("div");
+    row.className="archive-item";
+    row.innerHTML=`<span>${date}</span><span class="badge">…</span>`;
+    archiveList.appendChild(row);
     try{
-      await fetchDay(date); // jeśli ok → jest dostępne
-      badge.textContent = "dostępne";
-      badge.classList.add("ok");
-      row.addEventListener("click", async ()=>{
-        try{
-          setStatus("Ładuję…");
-          const obj = await fetchDay(date);
-          loadCrossword(obj);
-          setStatus("OK (online)");
-          closeArchive();
-        }catch(e){
-          console.warn(e);
-          setStatus("Nie udało się wczytać dnia");
-        }
-      }, { once:true });
-    }catch(e){
-      badge.textContent = "brak";
-      badge.classList.add("no");
-      row.style.cursor = "not-allowed";
-      row.addEventListener("click", ()=>{}, { once:true });
+      const r=await fetch(`${baseUrl}/${date}.json`);
+      if(r.ok){
+        row.querySelector(".badge").textContent="OK";
+        row.querySelector(".badge").className="badge ok";
+        row.onclick=()=>{closeArchive();loadDay(date)};
+      }else throw 1;
+    }catch{
+      row.querySelector(".badge").textContent="brak";
+      row.querySelector(".badge").className="badge no";
     }
   }
 }
 
-  // Helpers
-  const $ = (s) => document.querySelector(s);
-  const pad2 = (n) => String(n).padStart(2,"0");
-  const todayKey = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
-  };
-  const normalize = (s) =>
-    (s || "")
-      .toUpperCase()
-      .replaceAll("Ą","A").replaceAll("Ć","C").replaceAll("Ę","E")
-      .replaceAll("Ł","L").replaceAll("Ń","N").replaceAll("Ó","O")
-      .replaceAll("Ś","S").replaceAll("Ż","Z").replaceAll("Ź","Z")
-      .replace(/[^A-Z0-9]/g,"");
-  function formatTime(ms){
-    const s = Math.max(0, Math.floor(ms/1000));
-    return `${pad2(Math.floor(s/60))}:${pad2(s%60)}`;
-  }
+window.closeArchive=()=>archiveModal.classList.remove("active");
 
-  // Theme
-  const THEME_KEY = "daily_drop_player_theme";
-  function setTheme(theme){ document.documentElement.setAttribute("data-theme", theme); localStorage.setItem(THEME_KEY, theme); }
-  setTheme(localStorage.getItem(THEME_KEY) === "dark" ? "dark" : "light");
-  $("#themeBtn").addEventListener("click", ()=>{ const cur=document.documentElement.getAttribute("data-theme"); setTheme(cur==="light"?"dark":"light"); });
+document.getElementById("archiveBtn").onclick=()=>{
+  archiveModal.classList.add("active");
+  buildArchive();
+};
+document.getElementById("reloadBtn").onclick=()=>loadDay(today());
 
-  // Source
-  const SOURCE_KEY = "daily_drop_source_baseurl";
-  function getDefaultBaseUrl(){
-  // automatycznie: ten sam hosting + folder crosswords
-  return `${window.location.origin}/daily-drop/crosswords`;
-}
-function getBaseUrl(){
-  const saved = (localStorage.getItem(SOURCE_KEY) || "").trim().replace(/\/+$/,"");
-  return saved || getDefaultBaseUrl();
-}
-  function openSource(){ $("#sourceText").value = (localStorage.getItem(SOURCE_KEY) || "").trim(); $("#sourceModal").classList.add("active"); }
-  function closeSource(){ $("#sourceModal").classList.remove("active"); }
-  $("#sourceBtn").addEventListener("click", openSource);
-  $("#sourceBackdrop").addEventListener("click", closeSource);
-  $("#sourceCloseBtn").addEventListener("click", closeSource);
-  $("#saveSourceBtn").addEventListener("click", ()=>{
-    const v = $("#sourceText").value.trim().replace(/\/+$/,"");
-    if(v) localStorage.setItem(SOURCE_KEY, v); else localStorage.removeItem(SOURCE_KEY);
-    closeSource();
-  });
-  $("#clearSourceBtn").addEventListener("click", ()=>{ localStorage.removeItem(SOURCE_KEY); $("#sourceText").value=""; });
-
-  // -----------------------------
-  // Game state vars
-  // -----------------------------
-  let crossword=null, size=0, solution=[], clues=[], nums=new Map(), inputs={}, state=null, STORAGE_KEY=null;
-  const DEFAULT_HINTS=2;
-  function cellKey(r,c){ return `${r},${c}`; }
-  function makeDefaultState(hints){ return { startedAt:null, hintsLeft:hints, locked:{}, letters:{}, activeClue:null, activeCell:null, dir:"across" }; }
-
-  // Timer
-  let timerHandle=null;
-  function tick(){ const ms = state?.startedAt ? (Date.now()-state.startedAt) : 0; $("#timer").textContent = formatTime(ms); }
-  function ensureTimer(){ if(timerHandle) return; timerHandle=setInterval(tick,250); tick(); }
-  function stopTimer(){ if(timerHandle){ clearInterval(timerHandle); timerHandle=null; } }
-
-  function setStatus(text){ $("#statusPill").textContent = "Status: " + text; }
-
-  function enableGameUI(on){ $("#resetBtn").disabled=!on; $("#hintBtn").disabled=!on; $("#switchBtn").disabled=!on; $("#finishBtn").disabled=!on; }
-
-  function saveState(){ if(!STORAGE_KEY) return; localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-  function loadState(defaultHints){ try{ const raw = STORAGE_KEY ? localStorage.getItem(STORAGE_KEY) : null; if(!raw) return makeDefaultState(defaultHints); const parsed=JSON.parse(raw); return { ...makeDefaultState(defaultHints), ...parsed }; }catch{ return makeDefaultState(defaultHints); } }
-
-  function startTimerIfNeeded(){ if(state.startedAt) return; state.startedAt=Date.now(); saveState(); }
-
-  // numbering
-  function computeNumbers(runs){
-    const uniq=new Map();
-    for(const r of runs) uniq.set(`${r.start_row},${r.start_col}`, {r:r.start_row,c:r.start_col});
-    const ordered=Array.from(uniq.values()).sort((a,b)=>a.r-b.r||a.c-b.c);
-    const map=new Map(); let n=1; for(const s of ordered) map.set(`${s.r},${s.c}`, n++);
-    return map;
-  }
-
-  // render board + clues (same as import player, condensed)
-  function renderBoard(){
-    const boardEl=$("#board"); boardEl.innerHTML=""; boardEl.style.gridTemplateColumns=`repeat(${size}, 1fr)`; inputs={};
-    for(let r=0;r<size;r++) for(let c=0;c<size;c++){
-      const ch=solution[r][c]; const isBlock=(ch==="");
-      const cell=document.createElement("div");
-      cell.className="cell"+(isBlock?" block":""); cell.dataset.r=r; cell.dataset.c=c;
-      if(!isBlock){
-        const k=cellKey(r,c); const startNum=nums.get(k);
-        if(startNum!=null){ const n=document.createElement("div"); n.className="num"; n.textContent=String(startNum); cell.appendChild(n); }
-        const inp=document.createElement("input"); inp.maxLength=1; inp.autocomplete="off"; inp.spellcheck=false; inp.value=state.letters[k]||"";
-        if(state.locked[k]) cell.classList.add("locked");
-        inp.addEventListener("focus", ()=>setActiveCell(r,c,true));
-        inp.addEventListener("keydown",(e)=>{
-          if(state.locked[k]){e.preventDefault();return;}
-          if(e.key==="Backspace"){e.preventDefault(); if(inp.value){inp.value=""; delete state.letters[k]; saveState();} else {const prev=stepInDir({r,c}, state.dir, -1); if(prev) focusCell(prev.r, prev.c);} return;}
-          if(e.key==="ArrowRight"){e.preventDefault(); setDir("across"); move(1); return;}
-          if(e.key==="ArrowLeft"){e.preventDefault(); setDir("across"); move(-1); return;}
-          if(e.key==="ArrowDown"){e.preventDefault(); setDir("down"); move(1); return;}
-          if(e.key==="ArrowUp"){e.preventDefault(); setDir("down"); move(-1); return;}
-          if(e.key==="Enter"){e.preventDefault(); toggleDir(); return;}
-        });
-        inp.addEventListener("input", ()=>{
-          if(state.locked[k]){ inp.value=state.letters[k]||""; return; }
-          const val=normalize(inp.value).slice(0,1); inp.value=val;
-          if(val){ startTimerIfNeeded(); ensureTimer(); state.letters[k]=val; saveState(); const next=stepInDir({r,c}, state.dir, 1); if(next) focusCell(next.r,next.c); }
-          else { delete state.letters[k]; saveState(); }
-        });
-        cell.addEventListener("click", ()=>{ const same=state.activeCell && state.activeCell.r===r && state.activeCell.c===c; setActiveCell(r,c,false); if(same) toggleDir(); focusCell(r,c); });
-        cell.appendChild(inp); inputs[k]=inp;
-      }
-      boardEl.appendChild(cell);
-    }
-    updateHighlights();
-  }
-
-  function renderClues(){
-    const cluesEl=$("#clues"); cluesEl.innerHTML="";
-    const groups=[{title:"➡️ Poziomo",dir:"across"},{title:"⬇️ Pionowo",dir:"down"}];
-    for(const g of groups){
-      const wrap=document.createElement("div");
-      const h=document.createElement("div"); h.className="clue-group-title"; h.textContent=g.title; wrap.appendChild(h);
-      const list=clues.filter(c=>c.direction===g.dir).sort((a,b)=>a.number-b.number);
-      for(const c of list){
-        const el=document.createElement("div"); el.className="clue"; el.dataset.number=c.number; el.dataset.direction=c.direction;
-        const row=document.createElement("div"); row.className="row"; row.innerHTML=`<span class="num">${c.number}.</span><span class="len">${c.length}</span>`; el.appendChild(row);
-        const txt=document.createElement("div"); txt.textContent=c.clue; el.appendChild(txt);
-        el.addEventListener("click", ()=>{
-          state.activeClue={number:c.number,direction:c.direction}; state.dir=c.direction;
-          $("#dirLabel").textContent=state.dir==="across"?"poziomo":"pionowo";
-          state.activeCell={r:c.start_row,c:c.start_col}; saveState(); updateHighlights(); syncActiveClueUI();
-          focusCell(c.start_row,c.start_col); startTimerIfNeeded(); ensureTimer();
-        });
-        wrap.appendChild(el);
-      }
-      cluesEl.appendChild(wrap);
-    }
-    syncActiveClueUI();
-  }
-
-  function updateHintsUI(){ $("#hintsLeft").textContent=String(state.hintsLeft??0); $("#hintBtn").disabled=(state.hintsLeft??0)<=0; }
-
-  function getActiveClue(){ if(!state.activeClue) return null; return clues.find(c=>c.number===state.activeClue.number && c.direction===state.activeClue.direction) || null; }
-  function cellsForClue(clue){ const res=[]; for(let i=0;i<clue.word.length;i++){ res.push({r:clue.start_row+(clue.direction==="down"?i:0), c:clue.start_col+(clue.direction==="across"?i:0)}); } return res; }
-
-  function findClueIncludingCell(r,c,dir){ for(const clue of clues){ if(clue.direction!==dir) continue; for(let i=0;i<clue.word.length;i++){ const rr=clue.start_row+(dir==="down"?i:0); const cc=clue.start_col+(dir==="across"?i:0); if(rr===r&&cc===c) return clue; } } return null; }
-
-  function setActiveCell(r,c, fromFocus){
-    if(solution[r][c]==="") return;
-    const clue = findClueIncludingCell(r,c,state.dir) || findClueIncludingCell(r,c,state.dir==="across"?"down":"across");
-    if(clue){ state.activeClue={number:clue.number,direction:clue.direction}; state.dir=clue.direction; $("#dirLabel").textContent=state.dir==="across"?"poziomo":"pionowo"; }
-    state.activeCell={r,c};
-    if(!fromFocus){ startTimerIfNeeded(); ensureTimer(); }
-    saveState(); updateHighlights(); syncActiveClueUI();
-  }
-
-  function setDir(dir){ state.dir=dir; $("#dirLabel").textContent=dir==="across"?"poziomo":"pionowo"; if(state.activeCell){ const clue=findClueIncludingCell(state.activeCell.r,state.activeCell.c,dir); if(clue) state.activeClue={number:clue.number,direction:clue.direction}; } saveState(); updateHighlights(); syncActiveClueUI(); }
-  function toggleDir(){ setDir(state.dir==="across"?"down":"across"); }
-
-  function stepInDir(pos, dir, step){
-    const next={ r:pos.r+(dir==="down"?step:0), c:pos.c+(dir==="across"?step:0) };
-    if(next.r<0||next.c<0||next.r>=size||next.c>=size) return null;
-    if(solution[next.r][next.c]==="") return null;
-    const clue=getActiveClue();
-    if(clue){ const set=new Set(cellsForClue(clue).map(p=>cellKey(p.r,p.c))); if(!set.has(cellKey(next.r,next.c))) return null; }
-    return next;
-  }
-  function focusCell(r,c){ const k=cellKey(r,c); inputs[k]?.focus({preventScroll:true}); }
-  function move(step){ if(!state.activeCell) return; const next=stepInDir(state.activeCell,state.dir,step); if(next){ state.activeCell=next; saveState(); updateHighlights(); focusCell(next.r,next.c); } }
-
-  function updateHighlights(){
-    const cells=$("#board").querySelectorAll(".cell");
-    cells.forEach(el=>{ el.classList.remove("active"); el.classList.remove("in-word"); });
-    const clue=getActiveClue();
-    if(clue) for(const p of cellsForClue(clue)) $("#board").querySelector(`.cell[data-r="${p.r}"][data-c="${p.c}"]`)?.classList.add("in-word");
-    if(state.activeCell) $("#board").querySelector(`.cell[data-r="${state.activeCell.r}"][data-c="${state.activeCell.c}"]`)?.classList.add("active");
-  }
-  function syncActiveClueUI(){
-    document.querySelectorAll(".clue").forEach(el=>el.classList.remove("active"));
-    if(!state.activeClue) return;
-    document.querySelector(`.clue[data-number="${state.activeClue.number}"][data-direction="${state.activeClue.direction}"]`)?.classList.add("active");
-  }
-
-  function applyHint(){
-    const clue=getActiveClue();
-    if(!clue){ alert("Wybierz najpierw hasło."); return; }
-    if((state.hintsLeft??0)<=0) return;
-    const cells=cellsForClue(clue);
-    const empty=cells.filter(p=>!state.letters[cellKey(p.r,p.c)]);
-    if(!empty.length){ alert("To hasło jest już wypełnione."); return; }
-    const pick=empty[Math.floor(Math.random()*empty.length)];
-    const k=cellKey(pick.r,pick.c);
-    const correct=solution[pick.r][pick.c];
-    state.letters[k]=correct; state.locked[k]=true; state.hintsLeft-=1; saveState();
-    const inp=inputs[k]; if(inp){ inp.value=correct; inp.parentElement.classList.add("locked"); }
-    updateHintsUI(); startTimerIfNeeded(); ensureTimer();
-  }
-  $("#hintBtn").addEventListener("click", applyHint);
-  $("#switchBtn").addEventListener("click", toggleDir);
-
-  function countStatus(){
-    let total=0, filled=0, errors=0;
-    for(let r=0;r<size;r++) for(let c=0;c<size;c++){ if(solution[r][c]==="") continue; total++; const k=cellKey(r,c); const v=(state.letters[k]||"").toUpperCase(); if(v) filled++; if(v && v!==solution[r][c]) errors++; }
-    return { total, filled, errors, done: filled===total };
-  }
-  function buildShareText(ms,hintsUsed,errors){ const theme=crossword?.meta?.theme||"—"; const timeStr=formatTime(ms); const maxHints=crossword?.meta?.hintsPerDay ?? DEFAULT_HINTS; return `🧩 Daily Drop – ${theme}\n⏱️ ${timeStr} | 💡${hintsUsed}/${maxHints} | ❌ ${errors}`; }
-  function finish(){
-    const st=countStatus();
-    if(!st.done){ alert(`Jeszcze nie! Wypełnione: ${st.filled}/${st.total}.`); return; }
-    const ms=state.startedAt ? (Date.now()-state.startedAt) : 0;
-    const maxHints=crossword?.meta?.hintsPerDay ?? DEFAULT_HINTS;
-    const hintsUsed=maxHints - (state.hintsLeft??0);
-    $("#resultBody").innerHTML = `<div>⏱️ Czas: <b>${formatTime(ms)}</b></div><div>💡 Podpowiedzi: <b>${hintsUsed}/${maxHints}</b></div><div>❌ Błędy: <b>${st.errors}</b></div>`;
-    $("#shareText").textContent = buildShareText(ms,hintsUsed,st.errors);
-    $("#resultModal").classList.add("active");
-  }
-  $("#finishBtn").addEventListener("click", finish);
-  $("#resultBackdrop").addEventListener("click", ()=>$("#resultModal").classList.remove("active"));
-  $("#resultCloseBtn").addEventListener("click", ()=>$("#resultModal").classList.remove("active"));
-  $("#copyBtn").addEventListener("click", async ()=>{
-    try{ await navigator.clipboard.writeText($("#shareText").textContent||""); $("#copyBtn").textContent="Skopiowano!"; setTimeout(()=>$("#copyBtn").textContent="Skopiuj wynik",1200); }
-    catch{ alert("Nie mogę skopiować automatycznie. Skopiuj ręcznie."); }
-  });
-
-  $("#resetBtn").addEventListener("click", ()=>{
-    if(!STORAGE_KEY) return;
-    if(!confirm("Zresetować postęp dzisiejszej krzyżówki?")) return;
-    localStorage.removeItem(STORAGE_KEY);
-    state = loadState(crossword.meta?.hintsPerDay ?? DEFAULT_HINTS);
-    stopTimer(); tick();
-    renderBoard(); renderClues(); updateHintsUI();
-  });
-
-  // -----------------------------
-  // Dev import
-  // -----------------------------
-  function openImport(){ $("#importText").value=""; $("#importModal").classList.add("active"); }
-  function closeImport(){ $("#importModal").classList.remove("active"); }
-  $("#devImportBtn").addEventListener("click", openImport);
-  $("#importBackdrop").addEventListener("click", closeImport);
-  $("#importCloseBtn").addEventListener("click", closeImport);
-  const EXAMPLE = {"meta": {"date": "2026-02-05", "theme": "Internet", "size": 13, "targetRuns": 10, "hintsPerDay": 2}, "grid": [["", "", "H", "A", "S", "H", "T", "A", "G", "", "", "", ""], ["", "", "", "P", "R", "O", "F", "I", "L", "", "", "", ""], ["", "", "", "", "", "", "O", "", "", "", "", "", ""], ["", "", "", "", "", "", "M", "", "", "", "", "", ""], ["", "", "", "", "", "", "E", "", "", "", "", "", ""], ["", "A", "L", "G", "O", "R", "Y", "T", "M", "", "", "", ""], ["", "", "", "", "", "", "N", "", "", "", "", "", ""], ["", "", "", "", "", "", "T", "", "", "", "", "", ""], ["", "", "", "", "", "", "A", "", "", "", "", "", ""], ["", "", "", "", "", "", "R", "", "", "", "", "", ""], ["", "", "", "", "", "", "Z", "", "", "", "", "", ""], ["", "", "", "", "", "", "", "", "", "", "", "", ""], ["", "", "", "", "", "", "", "", "", "", "", "", ""]], "runs": [{"word": "HASHTAG", "direction": "across", "start_row": 0, "start_col": 2, "length": 7}, {"word": "PROFIL", "direction": "across", "start_row": 1, "start_col": 3, "length": 6}, {"word": "KOMENTARZ", "direction": "down", "start_row": 2, "start_col": 6, "length": 9}, {"word": "ALGORYTM", "direction": "across", "start_row": 5, "start_col": 1, "length": 8}], "clues": {"HASHTAG": "Słowo poprzedzone znakiem #, ułatwiające wyszukiwanie treści", "PROFIL": "Miejsce w serwisie, gdzie są informacje o użytkowniku", "KOMENTARZ": "Forma reakcji pod postem lub artykułem", "ALGORYTM": "Zestaw reguł decydujących, co widzisz w mediach społecznościowych"}};
-  $("#exampleBtn").addEventListener("click", ()=>{ $("#importText").value = JSON.stringify(EXAMPLE, null, 2); });
-  $("#loadBtn").addEventListener("click", ()=>{
-    try{ const raw=$("#importText").value.trim(); if(!raw) return; const obj=JSON.parse(raw); loadCrossword(obj, true); closeImport(); }
-    catch(e){ alert("Niepoprawny JSON."); console.error(e); }
-  });
-
-  // -----------------------------
-  // Load crossword
-  // -----------------------------
-  function loadCrossword(obj, isDev=false){
-    if(!obj || !Array.isArray(obj.grid) || !Array.isArray(obj.runs) || !obj.clues){ setStatus("Błędny JSON"); return; }
-    crossword=obj;
-    size=obj.grid.length;
-    solution=obj.grid.map(row=>row.map(ch=>normalize(ch)));
-    nums = computeNumbers(obj.runs);
-
-    clues = obj.runs.map(r=>{
-      const key=`${r.start_row},${r.start_col}`;
-      const number=nums.get(key);
-      const word=normalize(r.word);
-      return {
-        number,
-        direction:r.direction,
-        word,
-        length:r.length,
-        start_row:r.start_row,
-        start_col:r.start_col,
-        clue: obj.clues[word] || obj.clues[r.word] || "—"
-      };
-    }).sort((a,b)=>a.number-b.number || (a.direction==="across"?0:1));
-
-    const date = obj.meta?.date || todayKey();
-    STORAGE_KEY = `daily_drop_play_${date}_${size}`;
-
-    const hints = obj.meta?.hintsPerDay ?? DEFAULT_HINTS;
-    state = loadState(hints);
-
-    if(!state.activeClue || !state.activeCell){
-      const firstAcross = clues.find(c=>c.direction==="across") || clues[0];
-      if(firstAcross){
-        state.activeClue={number:firstAcross.number,direction:firstAcross.direction};
-        state.activeCell={r:firstAcross.start_row,c:firstAcross.start_col};
-        state.dir=firstAcross.direction;
-        saveState();
-      }
-    }
-
-    $("#titleH2").textContent = `Temat: ${obj.meta?.theme || "—"}`;
-    $("#subtitle").textContent = `Daily • ${date} • ${clues.length} haseł` + (isDev ? " (dev)" : "");
-    $("#dirLabel").textContent = state.dir==="across"?"poziomo":"pionowo";
-    enableGameUI(true);
-    updateHintsUI();
-    renderBoard();
-    renderClues();
-    if(state.startedAt) ensureTimer(); else tick();
-    setTimeout(()=>{ if(state.activeCell) focusCell(state.activeCell.r, state.activeCell.c); }, 80);
-  }
-
-  // -----------------------------
-  // Daily loader: cache -> fetch -> embedded -> error
-  // -----------------------------
-  async function loadDaily(forceReload=false){
-    const date = todayKey();
-    setStatus("Ładuję…");
-    const cacheKey = `daily_drop_daily_json_${date}`;
-    if(!forceReload){
-      const cached = localStorage.getItem(cacheKey);
-      if(cached){
-        try{ loadCrossword(JSON.parse(cached)); setStatus("OK (cache)"); return; }catch{ localStorage.removeItem(cacheKey); }
-      }
-    }
-
-    const base = getBaseUrl();
-if(base){
-  const url = `${base}/${date}.json`;
-      try{
-        const res = await fetch(url, {cache:"no-store"});
-        if(!res.ok) throw new Error("HTTP "+res.status);
-        const obj = await res.json();
-        // ensure meta date if missing
-        obj.meta = obj.meta || {};
-        if(!obj.meta.date) obj.meta.date = date;
-        localStorage.setItem(cacheKey, JSON.stringify(obj));
-        loadCrossword(obj);
-        setStatus("OK (online)");
-        return;
-      }catch(e){
-        console.warn("Fetch daily failed:", e);
-      }
-    }
-
-    if(EMBEDDED[date]){
-      localStorage.setItem(cacheKey, JSON.stringify(EMBEDDED[date]));
-      loadCrossword(EMBEDDED[date]);
-      setStatus("OK (embedded)");
-      return;
-    }
-
-    enableGameUI(false);
-    $("#board").innerHTML="";
-    $("#clues").innerHTML="";
-    $("#titleH2").textContent = "Temat: —";
-    $("#subtitle").textContent = `Daily • ${date} • brak krzyżówki`;
-    $("#dirLabel").textContent = "—";
-    $("#hintsLeft").textContent = "—";
-    tick();
-    setStatus("Brak krzyżówki na dziś");
-  }
-
-  $("#reloadBtn").addEventListener("click", ()=>loadDaily(true));
-
-  // -----------------------------
-  // Init
-  // -----------------------------
-  loadDaily(false);
-
+loadDay(today());
 })();
 </script>
 </body>
