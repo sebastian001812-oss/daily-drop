@@ -228,6 +228,80 @@ if (isDev) {
     "2026-02-06": {"meta": {"date": "2026-02-06", "theme": "Muzyka", "size": 13, "targetRuns": 10, "hintsPerDay": 2}, "grid": [["", "", "H", "A", "S", "H", "T", "A", "G", "", "", "", ""], ["", "", "", "P", "R", "O", "F", "I", "L", "", "", "", ""], ["", "", "", "", "", "", "O", "", "", "", "", "", ""], ["", "", "", "", "", "", "M", "", "", "", "", "", ""], ["", "", "", "", "", "", "E", "", "", "", "", "", ""], ["", "A", "L", "G", "O", "R", "Y", "T", "M", "", "", "", ""], ["", "", "", "", "", "", "N", "", "", "", "", "", ""], ["", "", "", "", "", "", "T", "", "", "", "", "", ""], ["", "", "", "", "", "", "A", "", "", "", "", "", ""], ["", "", "", "", "", "", "R", "", "", "", "", "", ""], ["", "", "", "", "", "", "Z", "", "", "", "", "", ""], ["", "", "", "", "", "", "", "", "", "", "", "", ""], ["", "", "", "", "", "", "", "", "", "", "", "", ""]], "runs": [{"word": "HASHTAG", "direction": "across", "start_row": 0, "start_col": 2, "length": 7}, {"word": "PROFIL", "direction": "across", "start_row": 1, "start_col": 3, "length": 6}, {"word": "KOMENTARZ", "direction": "down", "start_row": 2, "start_col": 6, "length": 9}, {"word": "ALGORYTM", "direction": "across", "start_row": 5, "start_col": 1, "length": 8}], "clues": {"HASHTAG": "Słowo poprzedzone znakiem #, ułatwiające wyszukiwanie treści", "PROFIL": "Miejsce w serwisie, gdzie są informacje o użytkowniku", "KOMENTARZ": "Forma reakcji pod postem lub artykułem", "ALGORYTM": "Zestaw reguł decydujących, co widzisz w mediach społecznościowych"}}
   };
 
+  function openArchive(){ 
+  $("#archiveModal").classList.add("active");
+  buildArchiveList();
+}
+function closeArchive(){ $("#archiveModal").classList.remove("active"); }
+
+$("#archiveBtn").addEventListener("click", openArchive);
+$("#archiveBackdrop").addEventListener("click", closeArchive);
+$("#archiveCloseBtn").addEventListener("click", closeArchive);
+
+function dateMinusDays(n){
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+}
+
+async function fetchDay(date){
+  const base = getBaseUrl();
+  const url = `${base}/${date}.json`;
+  const res = await fetch(url, { cache:"no-store" });
+  if(!res.ok) throw new Error("HTTP " + res.status);
+  const obj = await res.json();
+  obj.meta = obj.meta || {};
+  if(!obj.meta.date) obj.meta.date = date;
+  return obj;
+}
+
+async function buildArchiveList(){
+  const list = $("#archiveList");
+  list.innerHTML = "";
+
+  // 14 dni: dziś (0) do 13 dni wstecz
+  const days = Array.from({length:14}, (_,i)=>dateMinusDays(i));
+
+  for(const date of days){
+    const row = document.createElement("div");
+    row.className = "archive-item";
+    row.innerHTML = `
+      <div class="archive-left">
+        <div style="font-weight:900">${date}</div>
+        <div class="small">Kliknij, żeby wczytać</div>
+      </div>
+      <div class="badge">sprawdzam…</div>
+    `;
+    list.appendChild(row);
+
+    const badge = row.querySelector(".badge");
+
+    // lekki „HEAD check” nie zawsze działa na GH Pages w 100%, więc robimy szybki GET i od razu cache w pamięci przeglądarki
+    try{
+      await fetchDay(date); // jeśli ok → jest dostępne
+      badge.textContent = "dostępne";
+      badge.classList.add("ok");
+      row.addEventListener("click", async ()=>{
+        try{
+          setStatus("Ładuję…");
+          const obj = await fetchDay(date);
+          loadCrossword(obj);
+          setStatus("OK (online)");
+          closeArchive();
+        }catch(e){
+          console.warn(e);
+          setStatus("Nie udało się wczytać dnia");
+        }
+      }, { once:true });
+    }catch(e){
+      badge.textContent = "brak";
+      badge.classList.add("no");
+      row.style.cursor = "not-allowed";
+      row.addEventListener("click", ()=>{}, { once:true });
+    }
+  }
+}
+
   // Helpers
   const $ = (s) => document.querySelector(s);
   const pad2 = (n) => String(n).padStart(2,"0");
