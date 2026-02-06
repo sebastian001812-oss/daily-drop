@@ -541,9 +541,9 @@ function getBaseUrl(){
       }
     }
 
-    const base = (localStorage.getItem(SOURCE_KEY) || "").trim().replace(/\/+$/,"");
-    if(base){
-      const url = `${base}/${date}.json`;
+    const base = getBaseUrl();
+if(base){
+  const url = `${base}/${date}.json`;
       try{
         const res = await fetch(url, {cache:"no-store"});
         if(!res.ok) throw new Error("HTTP "+res.status);
