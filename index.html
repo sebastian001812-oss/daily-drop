@@ -10,10 +10,10 @@
   --bg:#f3f4f6;--card:#ffffff;--text:#0f172a;--muted:#64748b;
   --border:#e5e7eb;--accent:#2563eb;--danger:#ef4444;
   --hl: rgba(37, 99, 235, .12);
-  --hl2: rgba(37, 99, 235, .30);
+  --hl2: rgba(37, 99, 235, .32);
 }
 body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
-.wrap{max-width:980px;margin:0 auto;padding:16px}
+.wrap{max-width:1060px;margin:0 auto;padding:16px}
 .topbar{display:flex;justify-content:space-between;align-items:center;
   background:var(--card);padding:12px;border-radius:16px;border:1px solid var(--border)}
 .actions{display:flex;gap:8px;flex-wrap:wrap}
@@ -22,10 +22,48 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
 .btn.primary{background:var(--accent);color:#fff;border:none}
 .btn.danger{background:#fee2e2;color:#b91c1c;border:none}
 .card{margin-top:12px;background:#fff;padding:14px;border-radius:16px;border:1px solid var(--border)}
-.board{display:grid;gap:2px;margin-top:12px}
-.cell{aspect-ratio:1;border:1px solid #cbd5e1;display:flex;align-items:center;justify-content:center;position:relative}
+
+/* layout: fix "najeżdżania" */
+.grid2{
+  display:grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap:16px;
+  align-items:start;
+}
+@media (max-width: 900px){
+  .grid2{grid-template-columns:1fr}
+}
+
+/* board sizing */
+.board{
+  display:grid;
+  gap:3px;
+  margin-top:12px;
+  width:100%;
+  max-width:640px;
+}
+.cell{
+  aspect-ratio:1;
+  border:1px solid #cbd5e1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+  min-width:38px;
+  min-height:38px;
+}
 .cell.block{background:#0f172a;border-color:#0f172a}
-.cell input{width:100%;height:100%;border:none;text-align:center;font-weight:800;font-size:18px}
+.cell input{
+  width:100%;
+  height:100%;
+  border:none;
+  text-align:center;
+  font-weight:900;
+  font-size:20px;
+  text-transform:uppercase;
+  background:transparent;
+  outline:none;
+}
 .cell.word{background:var(--hl)}
 .cell.active{outline:3px solid var(--hl2);outline-offset:-2px}
 .num{position:absolute;top:2px;left:4px;font-size:10px;font-weight:900;color:#334155;opacity:.85}
@@ -38,9 +76,7 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
 .badge.ok{color:#16a34a;font-weight:700}
 .badge.no{color:#dc2626;font-weight:700}
 
-/* CLUES */
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
-@media (max-width: 900px){ .grid2{grid-template-columns:1fr} }
+/* clues */
 .clue{
   padding:10px;
   border:1px solid #e5e7eb;
@@ -52,7 +88,7 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
 .clue:hover{filter:brightness(.99)}
 .clue.active{border-color: rgba(37, 99, 235, .65); box-shadow:0 10px 25px rgba(37,99,235,.12)}
 .clue .top{display:flex;justify-content:space-between;gap:10px;font-weight:800}
-.clue .meta{color:#64748b;font-size:12px;font-weight:700}
+.clue .meta{color:#64748b;font-size:12px;font-weight:800}
 .small{color:var(--muted);font-size:12px;margin-top:8px}
 </style>
 </head>
@@ -76,7 +112,9 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
 <section class="card grid2">
   <div>
     <div id="status">Status: —</div>
-    <div id="board" class="board"></div>
+    <div style="overflow:hidden">
+      <div id="board" class="board"></div>
+    </div>
     <div class="small">Tip: kliknij definicję lub pole. Drugi klik w to samo pole przełącza kierunek.</div>
   </div>
 
@@ -145,12 +183,13 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
       renderBoard(json.grid, json.runs);
       renderClues(json);
 
-      // pick default active run: first across
+      // default: first across if exists, else first
       const runs = Array.isArray(json.runs) ? json.runs : [];
       const firstAcross = runs.findIndex(r => r.direction === "across");
       active.runIndex = firstAcross >= 0 ? firstAcross : (runs.length ? 0 : null);
       active.dir = (active.runIndex != null) ? (runs[active.runIndex].direction || "across") : "across";
-      paintActive();
+      lastCell = null;
+      paintActive(true);
 
       setStatus("OK");
       document.getElementById("resetBtn").disabled = false;
@@ -164,7 +203,7 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
     }
   }
 
-  // Optional: simple numbering by run start order (not classic crossword numbering yet)
+  // numbering by run start order (simple)
   function buildStartNumbers(runs){
     const map = new Map();
     if(!Array.isArray(runs)) return map;
@@ -208,11 +247,30 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
           const i = document.createElement("input");
           i.maxLength = 1;
 
+          // select run on focus/click
           i.addEventListener("focus", () => handleCellClick(r,c,true));
           d.addEventListener("click", () => handleCellClick(r,c,false));
 
+          // auto-advance within active run
+          i.addEventListener("input", () => hookupAutoAdvance(r, c, i));
+          i.addEventListener("keydown", (e) => {
+            if (e.key === "Backspace") {
+              if (i.value) {
+                i.value = "";
+                e.preventDefault();
+                return;
+              }
+              const prev = stepWithinActiveRun(r, c, -1);
+              if (prev) {
+                e.preventDefault();
+                focusCell(prev.r, prev.c);
+              }
+            }
+          });
+
           d.appendChild(i);
         }
+
         board.appendChild(d);
         cellElems[r][c] = d;
       });
@@ -249,7 +307,6 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
 
     cluesBox.innerHTML = html;
 
-    // hook clicks
     cluesBox.querySelectorAll(".clue").forEach(el => {
       el.addEventListener("click", () => {
         const idx = Number(el.dataset.idx);
@@ -278,7 +335,11 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
   function focusRunStart(idx){
     const run = currentJson?.runs?.[idx];
     if(!run) return;
-    const cell = cellElems?.[run.start_row]?.[run.start_col];
+    focusCell(run.start_row, run.start_col);
+  }
+
+  function focusCell(r,c){
+    const cell = cellElems?.[r]?.[c];
     const inp = cell?.querySelector("input");
     inp?.focus();
   }
@@ -286,7 +347,8 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
   function cellsForRun(run){
     const out = [];
     if(!run) return out;
-    for(let i=0;i<(run.length || 0);i++){
+    const len = run.length || 0;
+    for(let i=0;i<len;i++){
       const rr = run.start_row + (run.direction === "down" ? i : 0);
       const cc = run.start_col + (run.direction === "across" ? i : 0);
       out.push({r: rr, c: cc});
@@ -307,12 +369,10 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
     const runs = currentJson?.runs;
     if(!Array.isArray(runs)) return null;
 
-    // try preferred direction first
     if(preferredDir){
       const idx = runs.findIndex(run => run.direction === preferredDir && runContainsCell(run, r, c));
       if(idx >= 0) return idx;
     }
-    // fallback any
     const idx2 = runs.findIndex(run => runContainsCell(run, r, c));
     return idx2 >= 0 ? idx2 : null;
   }
@@ -322,7 +382,6 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
     const cell = cellElems?.[r]?.[c];
     if(!cell || cell.classList.contains("block")) return;
 
-    // second click same cell => toggle dir if possible
     const same = lastCell && lastCell.r === r && lastCell.c === c;
     if(!fromFocus && same){
       active.dir = (active.dir === "across") ? "down" : "across";
@@ -361,7 +420,6 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
       if(cell && !cell.classList.contains("block")) cell.classList.add("word");
     });
 
-    // active cell outline: start or last clicked if inside this run
     let ar = run.start_row, ac = run.start_col;
     if(lastCell && runContainsCell(run, lastCell.r, lastCell.c)){
       ar = lastCell.r; ac = lastCell.c;
@@ -378,6 +436,33 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
     if(active.runIndex == null) return;
     const el = cluesBox.querySelector(`.clue[data-idx="${active.runIndex}"]`);
     if(el) el.classList.add("active");
+  }
+
+  // auto-advance helpers
+  function activeRun(){
+    if(!currentJson || active.runIndex == null) return null;
+    return currentJson.runs?.[active.runIndex] || null;
+  }
+
+  function stepWithinActiveRun(r,c,step){
+    const run = activeRun();
+    if(!run) return null;
+
+    const cells = cellsForRun(run);
+    const idx = cells.findIndex(p => p.r === r && p.c === c);
+    if(idx < 0) return null;
+
+    const next = cells[idx + step];
+    return next || null;
+  }
+
+  function hookupAutoAdvance(r,c,inputEl){
+    const v = normalizeWord(inputEl.value).slice(0,1);
+    inputEl.value = v;
+    if(!v) return;
+
+    const next = stepWithinActiveRun(r,c,1);
+    if(next) focusCell(next.r, next.c);
   }
 
   // ARCHIVE
