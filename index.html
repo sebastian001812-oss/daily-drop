@@ -31,6 +31,26 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
   border-radius:12px;margin-bottom:6px;cursor:pointer}
 .badge.ok{color:#16a34a;font-weight:700}
 .badge.no{color:#dc2626;font-weight:700}
+
+/* CLUES */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+@media (max-width: 900px){
+  .grid2{grid-template-columns:1fr}
+}
+.clue{
+  padding:10px;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  margin-bottom:8px;
+  background:#fff;
+}
+.clue .top{
+  display:flex;justify-content:space-between;gap:10px;
+  font-weight:800;
+}
+.clue .meta{
+  color:#64748b;font-size:12px;font-weight:700;
+}
 </style>
 </head>
 
@@ -38,7 +58,10 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
 <div class="wrap">
 
 <header class="topbar">
-  <div><strong>DAILY DROP</strong><br><small id="subtitle">Daily</small></div>
+  <div>
+    <strong>DAILY DROP</strong><br>
+    <small id="subtitle">Daily</small>
+  </div>
   <div class="actions">
     <button class="btn primary" id="reloadBtn">Odśwież dziś</button>
     <button class="btn" id="archiveBtn">Archiwum</button>
@@ -47,9 +70,16 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
   </div>
 </header>
 
-<section class="card">
-  <div id="status">Status: —</div>
-  <div id="board" class="board"></div>
+<section class="card grid2">
+  <div>
+    <div id="status">Status: —</div>
+    <div id="board" class="board"></div>
+  </div>
+
+  <div>
+    <h3 style="margin:0 0 8px">Definicje</h3>
+    <div id="cluesBox" style="color:var(--muted)">—</div>
+  </div>
 </section>
 
 </div>
@@ -59,91 +89,176 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
   <div class="modal-card">
     <h3>Archiwum (14 dni)</h3>
     <div id="archiveList"></div>
-    <button class="btn" onclick="closeArchive()">Zamknij</button>
+    <button class="btn" id="archiveCloseBtn">Zamknij</button>
   </div>
 </div>
 
 <script>
 (() => {
-const board = document.getElementById("board");
-const status = document.getElementById("status");
-const archiveModal = document.getElementById("archiveModal");
-const archiveList = document.getElementById("archiveList");
-const params = new URLSearchParams(location.search);
-const isDev = params.get("dev")==="1";
-if(isDev) document.getElementById("devImportBtn").style.display="inline-block";
+  const board = document.getElementById("board");
+  const statusEl = document.getElementById("status");
+  const subtitleEl = document.getElementById("subtitle");
+  const cluesBox = document.getElementById("cluesBox");
+  const archiveModal = document.getElementById("archiveModal");
+  const archiveList = document.getElementById("archiveList");
 
-const baseUrl = location.origin + "/daily-drop/crosswords";
+  const params = new URLSearchParams(location.search);
+  const isDev = params.get("dev") === "1";
+  if (isDev) document.getElementById("devImportBtn").style.display = "inline-block";
 
-function today(){
-  const d=new Date();
-  return d.toISOString().slice(0,10);
-}
+  // auto source on GH Pages
+  const baseUrl = location.origin + "/daily-drop/crosswords";
 
-async function loadDay(date){
-  status.textContent="Status: ładowanie…";
-  try{
-    const res = await fetch(`${baseUrl}/${date}.json`);
-    if(!res.ok) throw 1;
-    const json = await res.json();
-    render(json.grid);
-    status.textContent="Status: OK";
-  }catch{
-    board.innerHTML="";
-    status.textContent="Status: brak krzyżówki";
+  function today() {
+    const d = new Date();
+    return d.toISOString().slice(0, 10);
   }
-}
 
-function render(grid){
-  board.style.gridTemplateColumns=`repeat(${grid.length},1fr)`;
-  board.innerHTML="";
-  grid.forEach(row=>{
-    row.forEach(cell=>{
-      const d=document.createElement("div");
-      d.className="cell"+(cell===""?" block":"");
-      if(cell!==""){
-        const i=document.createElement("input");
-        i.maxLength=1;
-        d.appendChild(i);
-      }
-      board.appendChild(d);
-    });
-  });
-}
+  function setStatus(t) { statusEl.textContent = "Status: " + t; }
 
-async function buildArchive(){
-  archiveList.innerHTML="";
-  for(let i=0;i<14;i++){
-    const d=new Date(); d.setDate(d.getDate()-i);
-    const date=d.toISOString().slice(0,10);
-    const row=document.createElement("div");
-    row.className="archive-item";
-    row.innerHTML=`<span>${date}</span><span class="badge">…</span>`;
-    archiveList.appendChild(row);
-    try{
-      const r=await fetch(`${baseUrl}/${date}.json`);
-      if(r.ok){
-        row.querySelector(".badge").textContent="OK";
-        row.querySelector(".badge").className="badge ok";
-        row.onclick=()=>{closeArchive();loadDay(date)};
-      }else throw 1;
-    }catch{
-      row.querySelector(".badge").textContent="brak";
-      row.querySelector(".badge").className="badge no";
+  async function loadDay(date) {
+    setStatus("ładowanie…");
+    subtitleEl.textContent = "Daily • " + date;
+
+    try {
+      const res = await fetch(`${baseUrl}/${date}.json`, { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const json = await res.json();
+
+      renderBoard(json.grid);
+      renderClues(json);
+
+      setStatus("OK");
+      document.getElementById("resetBtn").disabled = false;
+    } catch (e) {
+      console.warn(e);
+      board.innerHTML = "";
+      cluesBox.innerHTML = "";
+      setStatus("brak krzyżówki");
+      document.getElementById("resetBtn").disabled = true;
     }
   }
-}
 
-window.closeArchive=()=>archiveModal.classList.remove("active");
+  function renderBoard(grid) {
+    if (!Array.isArray(grid) || !Array.isArray(grid[0])) {
+      board.innerHTML = "";
+      return;
+    }
 
-document.getElementById("archiveBtn").onclick=()=>{
-  archiveModal.classList.add("active");
-  buildArchive();
-};
-document.getElementById("reloadBtn").onclick=()=>loadDay(today());
+    const n = grid.length;
+    board.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
+    board.innerHTML = "";
 
-loadDay(today());
+    grid.forEach(row => {
+      row.forEach(cell => {
+        const d = document.createElement("div");
+        d.className = "cell" + (cell === "" ? " block" : "");
+        if (cell !== "") {
+          const i = document.createElement("input");
+          i.maxLength = 1;
+          d.appendChild(i);
+        }
+        board.appendChild(d);
+      });
+    });
+  }
+
+  function renderClues(json) {
+    const runs = Array.isArray(json?.runs) ? json.runs : [];
+    const clues = (json?.clues && typeof json.clues === "object") ? json.clues : {};
+
+    if (!runs.length) {
+      cluesBox.innerHTML = `<div style="color:var(--muted)">Brak definicji w JSON (brak pola <b>runs</b>).</div>`;
+      return;
+    }
+
+    let html = "";
+    runs.forEach((r, idx) => {
+      const rawWord = (r.word || "").toString();
+      const wordKey = rawWord.toUpperCase();
+      const clueText = clues[wordKey] || clues[rawWord] || "—";
+      const dir = (r.direction === "down") ? "pionowo" : "poziomo";
+      const len = (r.length || rawWord.length || "—");
+
+      html += `
+        <div class="clue">
+          <div class="top">
+            <span>${idx + 1}.</span>
+            <span class="meta">${dir} • ${len}</span>
+          </div>
+          <div>${escapeHtml(clueText)}</div>
+        </div>
+      `;
+    });
+
+    cluesBox.innerHTML = html;
+  }
+
+  function escapeHtml(s){
+    return String(s)
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+
+  // ARCHIVE
+  function openArchive() {
+    archiveModal.classList.add("active");
+    buildArchive();
+  }
+  function closeArchive() {
+    archiveModal.classList.remove("active");
+  }
+
+  async function buildArchive() {
+    archiveList.innerHTML = "";
+    for (let i = 0; i < 14; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const date = d.toISOString().slice(0, 10);
+
+      const row = document.createElement("div");
+      row.className = "archive-item";
+      row.innerHTML = `<span>${date}</span><span class="badge">…</span>`;
+      archiveList.appendChild(row);
+
+      try {
+        const r = await fetch(`${baseUrl}/${date}.json`, { cache: "no-store" });
+        if (r.ok) {
+          row.querySelector(".badge").textContent = "OK";
+          row.querySelector(".badge").className = "badge ok";
+          row.onclick = () => { closeArchive(); loadDay(date); };
+        } else {
+          throw new Error("HTTP " + r.status);
+        }
+      } catch {
+        row.querySelector(".badge").textContent = "brak";
+        row.querySelector(".badge").className = "badge no";
+      }
+    }
+  }
+
+  // BUTTONS
+  document.getElementById("archiveBtn").onclick = openArchive;
+  document.getElementById("archiveCloseBtn").onclick = closeArchive;
+  archiveModal.addEventListener("click", (e) => {
+    if (e.target === archiveModal) closeArchive();
+  });
+
+  document.getElementById("reloadBtn").onclick = () => loadDay(today());
+
+  // Reset (na razie: czyści wpisane litery w UI)
+  document.getElementById("resetBtn").onclick = () => {
+    if (!confirm("Zresetować wpisane litery?")) return;
+    board.querySelectorAll("input").forEach(i => i.value = "");
+  };
+
+  // init
+  loadDay(today());
 })();
 </script>
+
 </body>
 </html>
