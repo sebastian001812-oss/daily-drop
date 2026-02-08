@@ -9,6 +9,8 @@
 :root{
   --bg:#f3f4f6;--card:#ffffff;--text:#0f172a;--muted:#64748b;
   --border:#e5e7eb;--accent:#2563eb;--danger:#ef4444;
+  --hl: rgba(37, 99, 235, .12);
+  --hl2: rgba(37, 99, 235, .30);
 }
 body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
 .wrap{max-width:980px;margin:0 auto;padding:16px}
@@ -21,9 +23,13 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
 .btn.danger{background:#fee2e2;color:#b91c1c;border:none}
 .card{margin-top:12px;background:#fff;padding:14px;border-radius:16px;border:1px solid var(--border)}
 .board{display:grid;gap:2px;margin-top:12px}
-.cell{aspect-ratio:1;border:1px solid #cbd5e1;display:flex;align-items:center;justify-content:center}
-.cell.block{background:#0f172a}
+.cell{aspect-ratio:1;border:1px solid #cbd5e1;display:flex;align-items:center;justify-content:center;position:relative}
+.cell.block{background:#0f172a;border-color:#0f172a}
 .cell input{width:100%;height:100%;border:none;text-align:center;font-weight:800;font-size:18px}
+.cell.word{background:var(--hl)}
+.cell.active{outline:3px solid var(--hl2);outline-offset:-2px}
+.num{position:absolute;top:2px;left:4px;font-size:10px;font-weight:900;color:#334155;opacity:.85}
+
 .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6)}
 .modal.active{display:flex}
 .modal-card{background:#fff;padding:16px;border-radius:16px;width:90%;max-width:420px}
@@ -34,23 +40,20 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
 
 /* CLUES */
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
-@media (max-width: 900px){
-  .grid2{grid-template-columns:1fr}
-}
+@media (max-width: 900px){ .grid2{grid-template-columns:1fr} }
 .clue{
   padding:10px;
   border:1px solid #e5e7eb;
   border-radius:12px;
   margin-bottom:8px;
   background:#fff;
+  cursor:pointer;
 }
-.clue .top{
-  display:flex;justify-content:space-between;gap:10px;
-  font-weight:800;
-}
-.clue .meta{
-  color:#64748b;font-size:12px;font-weight:700;
-}
+.clue:hover{filter:brightness(.99)}
+.clue.active{border-color: rgba(37, 99, 235, .65); box-shadow:0 10px 25px rgba(37,99,235,.12)}
+.clue .top{display:flex;justify-content:space-between;gap:10px;font-weight:800}
+.clue .meta{color:#64748b;font-size:12px;font-weight:700}
+.small{color:var(--muted);font-size:12px;margin-top:8px}
 </style>
 </head>
 
@@ -74,6 +77,7 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
   <div>
     <div id="status">Status: —</div>
     <div id="board" class="board"></div>
+    <div class="small">Tip: kliknij definicję lub pole. Drugi klik w to samo pole przełącza kierunek.</div>
   </div>
 
   <div>
@@ -106,15 +110,27 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
   const isDev = params.get("dev") === "1";
   if (isDev) document.getElementById("devImportBtn").style.display = "inline-block";
 
-  // auto source on GH Pages
   const baseUrl = location.origin + "/daily-drop/crosswords";
+
+  // runtime state
+  let currentJson = null;
+  let cellElems = []; // [r][c] => div
+  let active = { runIndex: null, dir: "across" };
+  let lastCell = null; // {r,c}
 
   function today() {
     const d = new Date();
     return d.toISOString().slice(0, 10);
   }
-
   function setStatus(t) { statusEl.textContent = "Status: " + t; }
+
+  function normalizeWord(s){
+    return String(s||"").toUpperCase()
+      .replaceAll("Ą","A").replaceAll("Ć","C").replaceAll("Ę","E")
+      .replaceAll("Ł","L").replaceAll("Ń","N").replaceAll("Ó","O")
+      .replaceAll("Ś","S").replaceAll("Ż","Z").replaceAll("Ź","Z")
+      .replace(/[^A-Z0-9]/g,"");
+  }
 
   async function loadDay(date) {
     setStatus("ładowanie…");
@@ -124,14 +140,23 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
       const res = await fetch(`${baseUrl}/${date}.json`, { cache: "no-store" });
       if (!res.ok) throw new Error("HTTP " + res.status);
       const json = await res.json();
+      currentJson = json;
 
-      renderBoard(json.grid);
+      renderBoard(json.grid, json.runs);
       renderClues(json);
+
+      // pick default active run: first across
+      const runs = Array.isArray(json.runs) ? json.runs : [];
+      const firstAcross = runs.findIndex(r => r.direction === "across");
+      active.runIndex = firstAcross >= 0 ? firstAcross : (runs.length ? 0 : null);
+      active.dir = (active.runIndex != null) ? (runs[active.runIndex].direction || "across") : "across";
+      paintActive();
 
       setStatus("OK");
       document.getElementById("resetBtn").disabled = false;
     } catch (e) {
       console.warn(e);
+      currentJson = null;
       board.innerHTML = "";
       cluesBox.innerHTML = "";
       setStatus("brak krzyżówki");
@@ -139,7 +164,19 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
     }
   }
 
-  function renderBoard(grid) {
+  // Optional: simple numbering by run start order (not classic crossword numbering yet)
+  function buildStartNumbers(runs){
+    const map = new Map();
+    if(!Array.isArray(runs)) return map;
+    let n = 1;
+    for(const r of runs){
+      const k = `${r.start_row},${r.start_col}`;
+      if(!map.has(k)) map.set(k, n++);
+    }
+    return map;
+  }
+
+  function renderBoard(grid, runs) {
     if (!Array.isArray(grid) || !Array.isArray(grid[0])) {
       board.innerHTML = "";
       return;
@@ -148,17 +185,36 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
     const n = grid.length;
     board.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
     board.innerHTML = "";
+    cellElems = Array.from({length:n}, () => Array.from({length:n}, () => null));
 
-    grid.forEach(row => {
-      row.forEach(cell => {
+    const nums = buildStartNumbers(runs);
+
+    grid.forEach((row, r) => {
+      row.forEach((cell, c) => {
         const d = document.createElement("div");
         d.className = "cell" + (cell === "" ? " block" : "");
+        d.dataset.r = r;
+        d.dataset.c = c;
+
         if (cell !== "") {
+          const num = nums.get(`${r},${c}`);
+          if (num != null) {
+            const sp = document.createElement("div");
+            sp.className = "num";
+            sp.textContent = String(num);
+            d.appendChild(sp);
+          }
+
           const i = document.createElement("input");
           i.maxLength = 1;
+
+          i.addEventListener("focus", () => handleCellClick(r,c,true));
+          d.addEventListener("click", () => handleCellClick(r,c,false));
+
           d.appendChild(i);
         }
         board.appendChild(d);
+        cellElems[r][c] = d;
       });
     });
   }
@@ -175,13 +231,13 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
     let html = "";
     runs.forEach((r, idx) => {
       const rawWord = (r.word || "").toString();
-      const wordKey = rawWord.toUpperCase();
+      const wordKey = normalizeWord(rawWord);
       const clueText = clues[wordKey] || clues[rawWord] || "—";
       const dir = (r.direction === "down") ? "pionowo" : "poziomo";
       const len = (r.length || rawWord.length || "—");
 
       html += `
-        <div class="clue">
+        <div class="clue" data-idx="${idx}">
           <div class="top">
             <span>${idx + 1}.</span>
             <span class="meta">${dir} • ${len}</span>
@@ -192,6 +248,22 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
     });
 
     cluesBox.innerHTML = html;
+
+    // hook clicks
+    cluesBox.querySelectorAll(".clue").forEach(el => {
+      el.addEventListener("click", () => {
+        const idx = Number(el.dataset.idx);
+        if (Number.isFinite(idx)) {
+          active.runIndex = idx;
+          active.dir = (currentJson?.runs?.[idx]?.direction) || "across";
+          lastCell = null;
+          paintActive(true);
+          focusRunStart(idx);
+        }
+      });
+    });
+
+    syncClueActiveUI();
   }
 
   function escapeHtml(s){
@@ -201,6 +273,111 @@ body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text)}
       .replaceAll(">","&gt;")
       .replaceAll('"',"&quot;")
       .replaceAll("'","&#039;");
+  }
+
+  function focusRunStart(idx){
+    const run = currentJson?.runs?.[idx];
+    if(!run) return;
+    const cell = cellElems?.[run.start_row]?.[run.start_col];
+    const inp = cell?.querySelector("input");
+    inp?.focus();
+  }
+
+  function cellsForRun(run){
+    const out = [];
+    if(!run) return out;
+    for(let i=0;i<(run.length || 0);i++){
+      const rr = run.start_row + (run.direction === "down" ? i : 0);
+      const cc = run.start_col + (run.direction === "across" ? i : 0);
+      out.push({r: rr, c: cc});
+    }
+    return out;
+  }
+
+  function runContainsCell(run, r, c){
+    if(!run) return false;
+    if(run.direction === "across"){
+      return r === run.start_row && c >= run.start_col && c < run.start_col + run.length;
+    }else{
+      return c === run.start_col && r >= run.start_row && r < run.start_row + run.length;
+    }
+  }
+
+  function findRunForCell(r,c,preferredDir){
+    const runs = currentJson?.runs;
+    if(!Array.isArray(runs)) return null;
+
+    // try preferred direction first
+    if(preferredDir){
+      const idx = runs.findIndex(run => run.direction === preferredDir && runContainsCell(run, r, c));
+      if(idx >= 0) return idx;
+    }
+    // fallback any
+    const idx2 = runs.findIndex(run => runContainsCell(run, r, c));
+    return idx2 >= 0 ? idx2 : null;
+  }
+
+  function handleCellClick(r,c,fromFocus){
+    if(!currentJson) return;
+    const cell = cellElems?.[r]?.[c];
+    if(!cell || cell.classList.contains("block")) return;
+
+    // second click same cell => toggle dir if possible
+    const same = lastCell && lastCell.r === r && lastCell.c === c;
+    if(!fromFocus && same){
+      active.dir = (active.dir === "across") ? "down" : "across";
+    }
+    lastCell = {r,c};
+
+    const idx = findRunForCell(r,c,active.dir);
+    if(idx != null){
+      active.runIndex = idx;
+      active.dir = currentJson.runs[idx].direction;
+      paintActive(true);
+      syncClueActiveUI();
+    }
+  }
+
+  function clearHighlights(){
+    if(!cellElems?.length) return;
+    for(const row of cellElems){
+      for(const cell of row){
+        if(!cell) continue;
+        cell.classList.remove("word");
+        cell.classList.remove("active");
+      }
+    }
+  }
+
+  function paintActive(syncClues=false){
+    clearHighlights();
+    if(!currentJson || active.runIndex == null) { if(syncClues) syncClueActiveUI(); return; }
+    const run = currentJson.runs[active.runIndex];
+    if(!run) return;
+
+    const cells = cellsForRun(run);
+    cells.forEach(({r,c}) => {
+      const cell = cellElems?.[r]?.[c];
+      if(cell && !cell.classList.contains("block")) cell.classList.add("word");
+    });
+
+    // active cell outline: start or last clicked if inside this run
+    let ar = run.start_row, ac = run.start_col;
+    if(lastCell && runContainsCell(run, lastCell.r, lastCell.c)){
+      ar = lastCell.r; ac = lastCell.c;
+    }
+    const activeCell = cellElems?.[ar]?.[ac];
+    if(activeCell && !activeCell.classList.contains("block")) activeCell.classList.add("active");
+
+    if(syncClues) syncClueActiveUI();
+  }
+
+  function syncClueActiveUI(){
+    const nodes = cluesBox.querySelectorAll(".clue");
+    nodes.forEach(n => n.classList.remove("active"));
+    if(active.runIndex == null) return;
+    const el = cluesBox.querySelector(`.clue[data-idx="${active.runIndex}"]`);
+    if(el) el.classList.add("active");
   }
 
   // ARCHIVE
